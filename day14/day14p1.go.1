@@ -1,0 +1,194 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"math"
+	"os"
+	"strings"
+)
+
+func str_to_arr(str string) []string {
+	arr := make([]string, len(str))
+
+	for i := 0; i < len(str); i++ {
+		arr[i] = str[i : i+1]
+	}
+
+	return arr
+}
+
+func read_input(path string) (template []string, patl []string, patr []string, inserts []string) {
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	scanner.Scan()
+	template = str_to_arr(scanner.Text())
+
+	patl = make([]string, 0)
+	patr = make([]string, 0)
+	inserts = make([]string, 0)
+
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == "" {
+			continue
+		}
+
+		fields := strings.Split(scanner.Text(), " -> ")
+		pattern := str_to_arr(strings.TrimSpace(fields[0]))
+		insert := strings.TrimSpace(fields[1])
+
+		patl = append(patl, pattern[0])
+		patr = append(patr, pattern[1])
+		inserts = append(inserts, insert)
+	}
+
+	return template, patl, patr, inserts
+}
+
+func parallel_sort(a []int, b []string) ([]int, []string) {
+	if len(a) != len(b) {
+		log.Fatal("len(a) != len(b)")
+	}
+	for i := 1; i < len(a); i++ {
+		var j int
+		ai := a[i]
+		bi := b[i]
+		for j = i - 1; j >= 0 && ai < a[j]; j-- {
+			a[j+1] = a[j]
+			b[j+1] = b[j]
+		}
+		a[j+1] = ai
+		b[j+1] = bi
+	}
+
+	return a, b
+}
+
+func extend(a []string, b []string) []string {
+	r := make([]string, len(a)+len(b))
+
+	for i := 0; i < len(a); i++ {
+		r[i] = a[i]
+	}
+	j := len(a)
+	for i := 0; i < len(b); i++ {
+		r[j] = b[i]
+		j++
+	}
+	return r
+}
+
+func apply_rules(template []string, patl []string, patr []string, inserts []string) []string {
+
+	idxs := make([]int, 0)
+	values := make([]string, 0)
+
+	// for each rule
+	for i := 0; i < len(patl); i++ {
+		pl, pr, ins := patl[i], patr[i], inserts[i]
+
+		for j := 0; j < len(template)-1; j++ {
+			if template[j] == pl && template[j+1] == pr {
+				idxs = append(idxs, j)
+				values = append(values, ins)
+			}
+		}
+	}
+
+	idxs, values = parallel_sort(idxs, values)
+
+	for i := 0; i < len(idxs); i++ {
+
+		new_template := make([]string, 0)
+
+		var j int
+		for j = i + 1; j < len(idxs) && idxs[i] == idxs[j]; j++ {
+
+		}
+
+		val := values[i:j]
+
+		l, m, r := template[:idxs[i]+1], val, template[idxs[i]+1:]
+		new_template = extend(new_template, l)
+		new_template = extend(new_template, m)
+		new_template = extend(new_template, r)
+
+		for k := j; k < len(idxs); k++ {
+			idxs[k]++
+		}
+		template = new_template
+	}
+
+	return template
+}
+
+func main() {
+
+	input_path := "day14_input_test.txt"
+	// input_path = "day14_input.txt"
+	if len(os.Args) > 1 {
+		input_path = os.Args[1]
+	}
+
+	template, patl, patr, inserts := read_input(input_path)
+	if len(patl) != len(patr) || len(patl) != len(inserts) {
+		log.Fatal("mismatch in input arrays")
+	}
+
+	fmt.Println("template", template)
+	fmt.Println("rules:")
+	for i := 0; i < len(patl); i++ {
+		fmt.Println(patl[i], patr[i], "->", inserts[i])
+	}
+
+	for i := 0; i < 10; i++ {
+		template = apply_rules(template, patl, patr, inserts)
+
+		fmt.Println("step", i+1, "len(template)", len(template))
+		for j := 0; j < len(template) && j < 100; j++ {
+			fmt.Print(template[j])
+		}
+		fmt.Println("...")
+	}
+
+	// count elements
+	count := make(map[string]int)
+	// lazy init
+	for i := 0; i < len(template); i++ {
+		count[template[i]] = 0
+	}
+	// count
+	for i := 0; i < len(template); i++ {
+		count[template[i]]++
+	}
+	fmt.Println("count", count)
+
+	max_count, max_val := math.MinInt, ""
+	min_count, min_val := math.MaxInt, ""
+
+	for val, val_count := range count {
+		fmt.Println("Key:", val, "=>", "Element:", val_count)
+
+		if val_count > max_count {
+			max_count = val_count
+			max_val = val
+		}
+		if val_count < min_count {
+			min_count = val_count
+			min_val = val
+		}
+	}
+
+	fmt.Println("Most common", max_val, max_count)
+	fmt.Println("Least common", min_val, min_count)
+
+	fmt.Println("ANSWER", max_count-min_count)
+
+}
