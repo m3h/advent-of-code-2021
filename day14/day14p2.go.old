@@ -85,7 +85,68 @@ func extend(a []string, b []string) []string {
 	return r
 }
 
-func apply_rules(template []string, patl []string, patr []string, inserts []string) []string {
+func remove_untouched(template []string, patl []string, patr []string, inserts []string) ([]string, []string) {
+
+	touches := make([]int, len(template))
+	for i := 0; i < len(template); i++ {
+		touches[i] = 0
+	}
+
+	// for each rule
+	for i := 0; i < len(patl); i++ {
+		pl, pr, _ := patl[i], patr[i], inserts[i]
+
+		for j := 0; j < len(template)-1; j++ {
+			if template[j] == pl && template[j+1] == pr {
+
+				touches[j]++
+				touches[j+1]++
+			}
+		}
+	}
+
+	new_template := make([]string, 0)
+	untouched := make([]string, 0)
+
+	for i := 0; i < len(touches); i++ {
+		if (i-1 < 0 || touches[i-1] == 0) &&
+			touches[i] == 0 &&
+			(i+1 >= len(touches) || touches[i+1] == 0) {
+			j := i + 1
+			for ; j < len(touches) && touches[j] == 0; j++ {
+			}
+
+			untouched = extend(untouched, template[i:j])
+			new_template = append(new_template, "*")
+
+			i = j - 1
+		} else {
+			new_template = append(new_template, template[i])
+		}
+	}
+	return new_template, untouched
+}
+
+func count(template []string, count map[string]int) {
+	// count elements
+	if count == nil {
+		count = make(map[string]int)
+	}
+	// count
+	for i := 0; i < len(template); i++ {
+		v := template[i]
+
+		if _, ok := count[v]; !ok {
+			count[v]++
+		}
+	}
+}
+
+func apply_rules(template []string, patl []string, patr []string, inserts []string, depth int, limit int) []string {
+
+	if depth > limit {
+		return
+	}
 
 	idxs := make([]int, 0)
 	values := make([]string, 0)
@@ -148,7 +209,13 @@ func main() {
 		fmt.Println(patl[i], patr[i], "->", inserts[i])
 	}
 
-	for i := 0; i < 40; i++ {
+	untouched := make([]string, 0)
+	new_untouched := make([]string, 0)
+
+	for i := 0; i < 10; i++ {
+		template, new_untouched = remove_untouched(template, patl, patr, inserts)
+		untouched = extend(untouched, new_untouched)
+
 		template = apply_rules(template, patl, patr, inserts)
 
 		fmt.Println("step", i+1, "len(template)", len(template))
@@ -158,6 +225,8 @@ func main() {
 		fmt.Println("...")
 	}
 
+	// add untouched to template
+	template = extend(template, untouched)
 	// count elements
 	count := make(map[string]int)
 	// lazy init
